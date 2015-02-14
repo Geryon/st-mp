@@ -1,0 +1,24 @@
+---
+- name: Install Apache2
+  apt: pkg=apache2 state=present
+  tags:
+  - deploy
+  - provision
+
+- name: Remove stock index.html
+  file: >
+    path=/var/www/html/index.html
+    state=absent
+  tags:
+  - provision
+
+- name: Install website
+  git: >
+    repo=https://github.com/Geryon/st-mp-web.git
+    dest=/var/www/html
+    recursive=yes
+    remote=origin
+    update=yes
+  tags:
+  - deploy
+  - provision

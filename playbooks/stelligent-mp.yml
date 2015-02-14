@@ -1,0 +1,108 @@
+- name: Create a new security group
+  hosts: localhost
+  connection: local
+  sudo: False
+  gather_facts: False
+  vars_files:
+  - "{{ secure_dir }}/vars/credentials.yml" 
+  tasks:
+  - name: Create a new security group
+    ec2_group:
+      name: "{{ hostname }}_sg"
+      description: "stelligent-mp group for {{ hostname }}"
+      region: us-east-1
+      state: present
+      aws_secret_key: "{{ aws_creds.secret_key }}"
+      aws_access_key: "{{ aws_creds.access_key }}"
+      rules:
+        - proto: tcp
+          from_port: 22
+          to_port: 22
+          cidr_ip: 0.0.0.0/0
+        - proto: tcp
+          from_port: 80
+          to_port: 80
+          cidr_ip: 0.0.0.0/0
+        - proto: tcp
+          from_port: 443
+          to_port: 443
+          cidr_ip: 0.0.0.0/0
+      rules_egress:
+        - proto: all
+          from_port: all
+          to-port: all
+          cidr_ip: 0.0.0.0/0
+  tags:
+    - provision 
+
+- name: Provision stelligent-mp
+  hosts: localhost
+  connection: local
+  sudo: False
+  gather_facts: False
+  vars_files:
+  - "{{ secure_dir }}/vars/credentials.yml" 
+  vars:
+    keypair: nick-mp
+    instance_type: t2.micro
+    image: ami-9a562df2
+    region: us-east-1
+    security_group: "{{ hostname }}_sg"
+    instance_tag: '{"Name":"{{ hostname }}"}'
+  roles:
+    - provision
+  tags:
+    - provision
+
+- name: Apply stelligent-mp profile
+  hosts: launched
+  user: ubuntu
+  sudo: true
+  gather_facts: true
+  vars_files:
+  - "{{ secure_dir }}/vars/credentials.yml"
+  - "{{ secure_dir }}/vars/users.yml" 
+  vars:
+    ansible_ssh_private_key_file: "{{ secure_dir }}/keys/nick-mp.pem"
+  roles:
+    - common
+    - web
+  tags:
+    - provision
+
+- name: Remove the 'ubuntu' user
+  hosts: launched
+  user: ansible
+  sudo: true
+  vars:
+    ansible_ssh_private_key_file: "{{ secure_dir }}/keys/nick-mp.pem"
+  vars_files:
+  - "{{ secure_dir }}/vars/credentials.yml"
+  - "{{ secure_dir }}/vars/users.yml"
+  tasks:
+  - name: Sleep for 120 seconds to make sure ubuntu user is logged out
+    shell: sleep 120
+  - name: Remove user
+    user: name=ubuntu state=absent remove=yes
+  tags:
+  - provision 
+
+- name: Mail about completed build
+  hosts: launched
+  user: ansible
+  sudo: false
+  gather_facts: true
+  vars:
+  - mail_to: "nick@declario.com"
+  - mail_from: "ansible@st-mp.com"
+  tasks:
+  - name: Get EC2 Facts
+    action: ec2_facts
+  - name: Send e-mail 
+    mail: >
+          from={{ mail_from }}
+          to={{ mail_to }}
+          subject="EC2 instance {{ hostname }} ({{ ansible_ec2_public_hostname }}) provision complete"
+          body="EC2 instance {{ ansible_ec2_instance_id }} created on {{ ansible_ec2_public_hostname }} ({{ ansible_ec2_public_ipv4 }})"
+  tags:
+  - provision

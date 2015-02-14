@@ -1,0 +1,31 @@
+---
+- name: Configure system with 'common' role
+  hosts: all
+  user: ubuntu
+  sudo: True
+  gather_facts: true
+  vars_files:
+  - "{{ secure_dir }}/vars/credentials.yml"
+  - "{{ secure_dir }}/vars/users.yml" 
+  vars:
+    ansible_ssh_private_key_file: "{{ secure_dir }}/keys/nick-mp.pem"
+  roles:
+  - common
+  tags:
+  - provision
+
+- name: Configure system with 'web' role
+  hosts: all
+  user: ubuntu
+  sudo: True
+  gather_facts: true
+  vars_files:
+  - "{{ secure_dir }}/vars/credentials.yml"
+  - "{{ secure_dir }}/vars/users.yml" 
+  vars:
+    ansible_ssh_private_key_file: "{{ secure_dir }}/keys/nick-mp.pem"
+  roles:
+  - web
+  tags:
+  - provision
+  - deploy

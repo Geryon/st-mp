@@ -1,0 +1,11 @@
+---
+- name: Install base packages
+  apt: pkg={{ item }} state=present update_cache=yes
+  with_items:
+  - binutils
+  - vim
+  - mailutils
+  - postfix
+  - s3cmd
+  - ntp
+  - git

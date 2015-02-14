@@ -1,0 +1,21 @@
+---
+- name: Create admin users
+  user: >
+    name={{ item.user }}
+    state=present
+    append=yes
+    groups={{ "adm,"+",".join(item.groups) }}
+    shell=/bin/bash
+  with_items: admin_users
+  when: admin_users is defined
+
+- name: Copy user SSH public keys
+  authorized_key: user={{ item.user }} key="{{ lookup('file',item.ssh_key) }}"
+  with_items: admin_users
+
+- name: Group 'adm' passwordless sudo
+  copy: >
+    src=adm-group 
+    dest=/etc/sudoers.d/adm-group 
+    owner=root group=root mode=0440
+  when: ansible_distribution_version >= '12.04'

@@ -1,0 +1,47 @@
+- name: gather ec2 facts
+  ec2_facts:
+
+- name: locally fetch ec2 name
+  local_action:
+    module: ec2_name
+    instance_id: "{{ ansible_ec2_instance_id }}"
+  register: ec2_name
+
+- name: Debug ec2_name
+  debug: msg="EC2 NAME {{ ec2_name.name }}"
+
+- name: Creating/Updating external A record
+  route53: >
+      command=create
+      zone=st-mp.com
+      record={{ ec2_name.name }}.st-mp.com
+      ttl=300
+      type=A
+      value={{ ansible_ec2_public_ipv4 }}
+      overwrite=true
+      aws_access_key={{ aws_creds.access_key }}
+      aws_secret_key={{ aws_creds.secret_key }}
+
+- name: Creating/Updating internal A record
+  route53: >
+      command=create
+      zone=st-mp.com
+      record={{ ec2_name.name }}.inside.st-mp.com
+      ttl=300
+      type=A
+      value={{ ansible_ec2_local_ipv4 }}
+      overwrite=true
+      aws_access_key={{ aws_creds.access_key }}
+      aws_secret_key={{ aws_creds.secret_key }}
+
+- name: Write resolvconf base
+  copy: >
+    src="resolvconf.base"
+    dest="/etc/resolvconf/resolv.conf.d/base"
+    mode=644 owner=root
+  when: ansible_distribution_version >= '12.04'
+
+- name: Reload resolvonf config
+  shell: /sbin/resolvconf -u
+  when: "'{{ ansible_distribution_version }}' >= '12.04'"
+
