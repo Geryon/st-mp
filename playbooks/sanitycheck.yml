@@ -1,0 +1,23 @@
+---
+- name: Sanity system check
+  hosts: all
+  user: ansible
+  sudo: True
+  gather_facts: true
+  vars:
+    ansible_ssh_private_key_file: "{{ secure_dir }}/keys/nick-mp.pem"
+  tasks:
+  - name: Sanity Checker (on server)
+    sanity_check: host="localhost" tests="['all']"
+  tags:
+  - local
+
+- name: Remote Sanity Check of Site
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+  - name: Sanity Checker (remote results)
+    sanity_check: host="{{ host }}" tests="['apache_page_result', 'apache_port']" remote_check="True"
+  tags:
+  - remote 

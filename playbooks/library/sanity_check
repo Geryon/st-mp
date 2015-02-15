@@ -1,0 +1,222 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+# (c) 2015, Nicholas DeClario <nick@declario.com>
+#
+# This module is part of Ansible and thus under the GPL
+# See <http://www.gnu.org/licenses//>.
+
+
+DOCUMENTATION = '''
+---
+module: sanity_check
+author: Nicholas DeClario
+short_description: Module to do a basic sanity check against Apache
+description:
+  - This module will check that Apache is running ont he local host.  It
+    will also check that port 80 is open and returning the proper results.
+    It can also be ran against a server remotely, in which case it can
+    only check that port 80 is open and the pages sent are expected.
+    When running locally it will create a results page and place it in
+    /var/www/html/sanity_check_results.html.
+options:
+  host:
+    description:
+    - The hostname of the system to run against.  This should almost always
+      be 'localhost' if running in 'local' mode.  If running against a remote
+      system an FQDN is required.
+    required: False
+    default: localhost
+  tests:
+    description:
+    - This is a list of tests that can be ran.  Currently there are t3 tests
+      available and they can be specified as follows:
+      ['apache_page_result', 'apache_port', 'apache_proc'].  The last one
+      cannot be ran if running in 'remote' mode.  The default is ['all'].
+    required: False
+    default: ['all']
+  remote_check:
+    description:
+    - To run the tests in 'remote' mode, set this to 'True'.  This will run
+      the module on the local Ansible server and connect remotely to the
+      server in question.  This requires the 'host' option be set to the
+      FQDN of the host to be tested against.  If set to 'False', the default,
+      this will be executed on the machine requested and the connections will
+      be made internally.  The test 'apache_proc' can not run if this is
+      set to 'True'.  Additionally, a report will not be generated when
+      running on the local system.
+    required: False
+    default: False
+  report:
+    description:
+    - This will generate an HTML report at the specified file path.  The
+      default file path is '/var/www/html/sanity_check_results.html'.  This
+      is designed to run only when the 'remote_check' setting is set to
+      'False.
+    required: False
+    default: '/var/www/html/sanity_check_results.html'
+'''
+
+EXAMPLES = '''
+  ## Running on remote server in local mode
+  tasks:
+  - name: Sanity Checker (ran on remote server)
+    sanity_check: host="localhost" tests="['all']"
+
+  ## Running on local (Ansible) server in remote mode
+  - name: Sanity Checker (ran on local server)
+    sanity_check: >
+      host="{{ host }}"
+      tests="['apache_page_result', 'apache_port']"
+      remote_check="True"
+'''
+
+
+def check_apache_proc():
+    pid_path = "/var/run/apache2/apache2.pid"
+    desc = "Apache2 Running Status"
+
+    if not os.path.isfile(pid_path):
+        return {'description': desc,
+                'result': 2,
+                'result_str': 'Apache Not Running'}
+
+    pid_file = open(pid_path, 'r')
+    pid = pid_file.read()
+
+    try:
+        os.kill(int(pid), 0)
+        return {'description': desc,
+                'result': 0,
+                'result_str': 'Apache Running (%s)' % pid}
+    except:
+        return {'description': desc,
+                'result': 2,
+                'result_str': 'Apache Not Running (PID file exists)'}
+
+
+def check_apache_port(module):
+    import socket
+
+    host = module.params.get('host')
+    desc = "Apache2 Port 80 Open"
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    if not sock.connect_ex((host, 80)):
+        return {'description': desc,
+                'result': 0,
+                'result_str': 'Apache Port 80 open'}
+    else:
+        return {'description': desc,
+                'result': 2,
+                'result_str': 'Apache Port 80 closed'}
+
+
+def check_apache_page_result(module):
+    import requests
+    desc = "Check Apache Serving correct page"
+    search = "Automation for the People"
+    fqdn = module.params.get('host')
+    st_mp_url = "http://%s" % fqdn
+    response = requests.get(st_mp_url)
+
+    if response.status_code == 200:
+        if search in response.content:
+            return {'description': desc,
+                    'result': 0,
+                    'result_str': 'Correct page being loaded'}
+        else:
+            return {'description': desc,
+                    'result': 2,
+                    'result_str': 'Page loaded but incorrect content'}
+    else:
+        return {'description': desc,
+                'result': 2,
+                'result_str': 'HTTP ERROR: %s' % response.status_code}
+
+
+def write_report(module, results):
+    out_file = module.params.get('report')
+    date_str = time.strftime("%c")
+    html = """
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+    <title>Sanity Check Report for {date}</title>
+</head>
+
+<body>
+    <h1>Sanity Check Rport for {date}</h1>
+    <table width="90%" border="1" cellspacing="0">
+    <tr>
+        <td><b>Test</b></td>
+        <td><b>Description</b></td>
+        <td><b>Results</b></td>
+    </tr>
+""".format(date=date_str)
+
+    for result in results:
+        color = "green"
+        if results[result]['result']:
+            color = "red"
+        html += """
+    <tr>
+        <td>{test}</td>
+        <td>{description}</td>
+        <td><font color="{color}">{results}</font></td>
+    </tr>
+""".format(test=result,
+           description=results[result]['description'],
+           results=results[result]['result_str'],
+           color=color)
+
+    html += """
+    </table>
+</body>
+</html>
+"""
+
+    out = open(out_file, 'w')
+    out.write(html)
+    out.close()
+
+
+def main():
+    module = AnsibleModule(
+        argument_spec = dict(
+            host = dict(default='localhost'),
+            tests = dict(default=['all']),
+            remote_check = dict(type='bool', default='False'),
+            report = dict(default='/var/www/html/sanity_check_results.html')
+        ),
+        supports_check_mode = True
+    )
+
+    results = dict()
+    changed = False
+
+    tests = module.params.get('tests')
+
+    if "all" in tests or "apache_proc" in tests:
+        results['apache_proc'] = check_apache_proc()
+    if "all" in tests or "apache_port" in tests:
+        results['apache_port'] = check_apache_port(module)
+    if "all" in tests or "apache_page_result" in tests:
+        results['apache_page_result'] = check_apache_page_result(module)
+
+    rc = module.params.get('remote_check')
+    if not rc:
+        write_report(module, results)
+
+    for result in results:
+        if results[result]['result']:
+            module.fail_json(msg=results[result]['result_str'])
+
+    module.exit_json(changed=changed)
+
+# this is magic, see lib/ansible/module_common.py
+#<<INCLUDE_ANSIBLE_MODULE_COMMON>>
+
+main()
