@@ -1,7 +1,7 @@
 ---
 - name: Configure system with 'common' role
   hosts: all
-  user: ubuntu
+  user: ansible
   sudo: True
   gather_facts: true
   vars_files:
@@ -16,7 +16,7 @@
 
 - name: Configure system with 'web' role
   hosts: all
-  user: ubuntu
+  user: ansible
   sudo: True
   gather_facts: true
   vars_files:

@@ -98,7 +98,10 @@
   - name: Get EC2 Facts
     action: ec2_facts
   - name: Sanity Checker (on server)
-    sanity_check: host="localhost" tests="['all']"
+    sanity_check: >
+      host="localhost"
+      tests="['all']"
+      https="True"
   tags:
   - provision
 

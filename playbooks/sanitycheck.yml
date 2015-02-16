@@ -8,7 +8,10 @@
     ansible_ssh_private_key_file: "{{ secure_dir }}/keys/nick-mp.pem"
   tasks:
   - name: Sanity Checker (on server)
-    sanity_check: host="localhost" tests="['all']"
+    sanity_check: >
+        host="localhost"
+        tests="['all']"
+        https="True"
   tags:
   - local
 
@@ -18,6 +21,10 @@
   gather_facts: false
   tasks:
   - name: Sanity Checker (remote results)
-    sanity_check: host="{{ host }}" tests="['apache_page_result', 'apache_port']" remote_check="True"
+    sanity_check: >
+        host="{{ host }}"
+        tests="['apache_page_result', 'apache_port']"
+        remote_check="True"
+        https="True"
   tags:
   - remote 

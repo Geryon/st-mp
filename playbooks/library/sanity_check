@@ -95,30 +95,30 @@ def check_apache_proc():
                 'result_str': 'Apache Not Running (PID file exists)'}
 
 
-def check_apache_port(module):
+def check_apache_port(module, port=80):
     import socket
 
     host = module.params.get('host')
-    desc = "Apache2 Port 80 Open"
+    desc = "Apache2 Port %s Open" % port
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    if not sock.connect_ex((host, 80)):
+    if not sock.connect_ex((host, port)):
         return {'description': desc,
                 'result': 0,
-                'result_str': 'Apache Port 80 open'}
+                'result_str': 'Apache Port %s open' % port}
     else:
         return {'description': desc,
                 'result': 2,
-                'result_str': 'Apache Port 80 closed'}
+                'result_str': 'Apache Port %s closed' % port}
 
 
-def check_apache_page_result(module):
+def check_apache_page_result(module, https=False):
     import requests
     desc = "Check Apache Serving correct page"
     search = "Automation for the People"
     fqdn = module.params.get('host')
-    st_mp_url = "http://%s" % fqdn
-    response = requests.get(st_mp_url)
+    st_mp_url = "%s://%s" % (("https" if https else "http"), fqdn)
+    response = requests.get(st_mp_url, verify=False)
 
     if response.status_code == 200:
         if search in response.content:
@@ -187,6 +187,7 @@ def main():
     module = AnsibleModule(
         argument_spec = dict(
             host = dict(default='localhost'),
+            https = dict(type='bool', default='False'),
             tests = dict(default=['all']),
             remote_check = dict(type='bool', default='False'),
             report = dict(default='/var/www/html/sanity_check_results.html')
@@ -198,13 +199,19 @@ def main():
     changed = False
 
     tests = module.params.get('tests')
+    https = module.params.get('https')
 
     if "all" in tests or "apache_proc" in tests:
         results['apache_proc'] = check_apache_proc()
     if "all" in tests or "apache_port" in tests:
         results['apache_port'] = check_apache_port(module)
+        if https:
+            results['apache_port_https'] = check_apache_port(module, 443)
     if "all" in tests or "apache_page_result" in tests:
         results['apache_page_result'] = check_apache_page_result(module)
+        if https:
+            results['apache_page_result_https'] = \
+                check_apache_page_result(module, https)
 
     rc = module.params.get('remote_check')
     if not rc:

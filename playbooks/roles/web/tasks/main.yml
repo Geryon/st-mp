@@ -1,6 +1,53 @@
 ---
+- name: Fetch EC2 Facts
+  ec2_facts:
+
 - name: Install Apache2
   apt: pkg=apache2 state=present
+  tags:
+  - deploy
+  - provision
+
+- name: Create self-signed SSL cert
+  command: openssl req -new -nodes -x509 -subj "/C=US/ST=New Jersey/L=Lebanon/O=IT/CN={{ ansible_fqdn }}" -days 3650 -keyout /etc/ssl/private/st-mp-server.key -out /etc/ssl/certs/st-mp-server.crt -extensions v3_ca creates=/etc/ssl/certs/st-mp-server.crt
+  tags:
+  - deploy
+  - provision
+
+- name: Enable mod_rewrite & ssl in apache2
+  apache2_module: state=present name={{ item }}
+  with_items:
+  - rewrite
+  - ssl
+  tags:
+  - deploy
+  - provision
+
+- name: Configure virtual hosts
+  template: >
+    src=apache_{{ item }}.j2
+    dest=/etc/apache2/sites-available/{{ item }}
+    owner=root
+    group=root
+    mode=0644
+  with_items:
+  - st-mp-ssl.conf
+  - st-mp.conf
+  tags:
+  - deploy
+  - provision
+
+- name: Enable SSL vhost
+  shell: a2ensite {{ item }}
+  with_items:
+  - st-mp-ssl.conf
+  - st-mp.conf
+  tags:
+  - deploy
+  - provision
+
+- name: Disable default virtualhost
+  shell: a2dissite 000-default.conf
   tags:
   - deploy
   - provision
@@ -19,6 +66,12 @@
     recursive=yes
     remote=origin
     update=yes
+  notify:
+  - restart apache2
   tags:
   - deploy
+
+- name: Ensure httpd is enabled
+  service: name=apache2 enabled=yes
+  tags:
   - provision
