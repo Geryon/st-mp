@@ -31,8 +31,11 @@ options:
     description:
     - This is a list of tests that can be ran.  Currently there are t3 tests
       available and they can be specified as follows:
-      ['apache_page_result', 'apache_port', 'apache_proc'].  The last one
-      cannot be ran if running in 'remote' mode.  The default is ['all'].
+      ['apache_page_result', 'apache_port', 'apache_proc', 'git_web_repo'].
+      The last two cannot be ran if running in 'remote' mode.  If the 
+      'https' option is set to true, the 'apache_page_result' and 
+      'apache_port' checks will be ran twice, once on port 80 and once for
+      port 443.  If running in HTTPS, certificates are NOT verified.
     required: False
     default: ['all']
   remote_check:
@@ -47,6 +50,14 @@ options:
       running on the local system.
     required: False
     default: False
+  repo:
+    description:
+    - If the 'git_web_repo' check is requested this is the repo it will check. 
+      The default for this is '/var/www/html'.  This will not run if a remote
+      check is preformed since there is no access to the local filesystem 
+      containing the repository.  This relies on the gitpython module.
+    required: False
+    default: '/var/www/html'
   report:
     description:
     - This will generate an HTML report at the specified file path.  The
@@ -135,6 +146,27 @@ def check_apache_page_result(module, https=False):
                 'result_str': 'HTTP ERROR: %s' % response.status_code}
 
 
+def check_git_web_repo(module):
+    desc = "Confirm GIT repository is most recent"
+    remote = module.params.get('remote_check')
+    if remote:
+        return dict()
+    
+    import git
+    repo_path = module.params.get('repo')
+    repo = git.Repo(repo_path)
+    status = repo.git.status()
+    
+    if "branch is up-to-date" in status:
+        return {'description': desc,
+                'result': 0,
+                'result_str': "%s repository is up-to-date" % repo_path}
+    else:
+        return {'description': desc,
+                'result': 2,
+                'result_str': "%s repository is NOT up-to-date" % repo_path}
+
+
 def write_report(module, results):
     out_file = module.params.get('report')
     date_str = time.strftime("%c")
@@ -190,6 +222,7 @@ def main():
             https = dict(type='bool', default='False'),
             tests = dict(default=['all']),
             remote_check = dict(type='bool', default='False'),
+            repo = dict(default='/var/www/html'),
             report = dict(default='/var/www/html/sanity_check_results.html')
         ),
         supports_check_mode = True
@@ -212,6 +245,8 @@ def main():
         if https:
             results['apache_page_result_https'] = \
                 check_apache_page_result(module, https)
+    if "all" in tests or "git_web_repo" in tests:
+        results['git_web_repo'] = check_git_web_repo(module)
 
     rc = module.params.get('remote_check')
     if not rc:

@@ -7,11 +7,14 @@
   vars:
     ansible_ssh_private_key_file: "{{ secure_dir }}/keys/nick-mp.pem"
   tasks:
+  - name: Pip install gitpython 
+    pip: name=gitpython use_mirrors=no
   - name: Sanity Checker (on server)
     sanity_check: >
         host="localhost"
         tests="['all']"
         https="True"
+        repo="/var/www/html"
   tags:
   - local
 

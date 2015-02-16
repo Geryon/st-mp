@@ -9,3 +9,4 @@
   - s3cmd
   - ntp
   - git
+  - python-pip

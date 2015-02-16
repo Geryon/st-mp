@@ -97,6 +97,8 @@
   tasks:
   - name: Get EC2 Facts
     action: ec2_facts
+  - name: Pip install gitpython
+    pip: name=gitpython use_mirrors=no
   - name: Sanity Checker (on server)
     sanity_check: >
       host="localhost"
