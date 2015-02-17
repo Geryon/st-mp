@@ -74,7 +74,7 @@ As with the deployment script above, an e-mail will be delivered upon successful
 
 If everything completed successfully an e-mail will be sent out containing the public EC2 hostname.  Connecting via HTTP to this address will connect to the web server.  The server is configured to automatically redirect to HTTPS, which will cause a certificate verification error; please accept the certificate.  The Ansible playbooks create a self-signed cert for the server.  With the certificate accepted, the web page stating 'Automation for the People' will appear.  
 
-At the end of the processes, just prior to the e-mail being sent, a sanity check is ran.  This sanity check will produce an HTML web page stored on the server it is ran on.  That page can be found by adding  '/sanity_check_results.html' to the URL.  A list of checks with their results will be displayed.  Successfull tests will display in green text, while errors will display in red.
+At the end of the processes, just prior to the e-mail being sent, a sanity check is run.  This sanity check will produce an HTML web page stored on the server it is ran on.  That page can be found by adding  '/sanity_check_results.html' to the URL.  A list of checks with their results will be displayed.  Successfull tests will display in green text, while errors will display in red.
 
 Logging in via SSH can be accomplished using the 'stelligent-key' found in the 'secure/keys' directory and logging in as the stelligent user:
 
@@ -106,11 +106,11 @@ This will test all the internal connections and processes.  To confirm the site 
 ansible-playbook -i localhost, sanitycheck.yml -e 'secure_dir="/path/to/secure" hostname="test.st-mp.com"' -t remote
 ```
 
-The later method will not create a status page but intsead if there is a failure, Ansible will report a failure of the playbook and the error returned will be the relevant problem the sanity check found.
+The latter method will not create a status page but intsead if there is a failure, Ansible will report a failure of the playbook and the error returned will be the relevant problem the sanity check found.
 
 ## profile.yml
 
-This playbook can be ran against an existing instance.  It's everything required to configure an EC2 instance.  Additionally, by limiting which tags are applied, it can be used to simply deploy an updated version of the website, as in this example:
+This playbook can be run against an existing instance.  It's everything required to configure an EC2 instance.  Additionally, by limiting which tags are applied, it can be used to simply deploy an updated version of the website, as in this example:
 
 ```
 ansible-playbook -i test.st-mp.com, profile.yml -e 'secure_dir="/path/to/secure"' -t deploy
