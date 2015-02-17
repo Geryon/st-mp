@@ -180,7 +180,7 @@ def write_report(module, results):
 </head>
 
 <body>
-    <h1>Sanity Check Rport for {date}</h1>
+    <h1>Sanity Check Report for {date}</h1>
     <table width="90%" border="1" cellspacing="0">
     <tr>
         <td><b>Test</b></td>
